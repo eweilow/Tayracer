@@ -154,7 +154,7 @@ namespace Tayracer.Raycasts
 				DataBuffer = new ComputeBuffer<float>(_computeContext, 
 					ComputeMemoryFlags.ReadOnly | ComputeMemoryFlags.CopyHostPointer,
 					new float[5]);
-				ResultDataBuffer = new ComputeBuffer<byte>(_computeContext, ComputeMemoryFlags.WriteOnly, 1);
+				ResultDataBuffer = new ComputeBuffer<float>(_computeContext, ComputeMemoryFlags.WriteOnly, 1);
 				Console.WriteLine("Success!");
 			}
 			catch (BuildProgramFailureComputeException ex)
@@ -194,7 +194,7 @@ namespace Tayracer.Raycasts
 
 		public ComputeBuffer<float> DataBuffer;
 		public ComputeBuffer<Matrix4> MatrixBuffer;
-        public ComputeBuffer<byte> ResultDataBuffer;
+		public ComputeBuffer<float> ResultDataBuffer;
 
 		protected override void OnUnload(EventArgs e)
 		{
@@ -204,11 +204,8 @@ namespace Tayracer.Raycasts
 			ResultDataBuffer.Dispose();
 		}
 
-		public byte[] ExecuteGpu(int width, int height, Vector3 origin, Matrix4 matrix)
+		public float[] ExecuteGpu(int width, int height, Vector3 origin, Matrix4 matrix)
         {
-            /*GL.Finish();
-            var mem = new ComputeMemory[] {ResultDataBuffer};
-            _commands.AcquireGLObjects(mem, null);*/
 			if(ResultDataBuffer == null || p_width != width || p_height != height)
 			{
 				p_width = width;
@@ -216,20 +213,10 @@ namespace Tayracer.Raycasts
 				count = p_width * p_height;
 
 				ResultDataBuffer.Dispose();
-				ResultDataBuffer = new ComputeBuffer<byte>(_computeContext, ComputeMemoryFlags.WriteOnly, count*3);
-			}
-			//Console.WriteLine("Executing GPU");
-			//var sw = Stopwatch.StartNew();
-			//Console.WriteLine("{0} x {1} pixels ({2} total)", width, height, count);
-			/*if(DataBuffer == null || p_width != width || p_height != height || p_origin != origin)
-			{
-				p_width = width;
-				p_height = height;
-				p_origin = origin;
+				ResultDataBuffer = new ComputeBuffer<float>(_computeContext, ComputeMemoryFlags.WriteOnly, count*3);
 
-				//var p = new float[]{ p_width, p_height, origin.X, origin.Y, origin.Z };
-                //_commands.WriteToBuffer(p, DataBuffer, false, _computeEventList); 
-			}*/
+				_res = new float[count * 3];
+			}
 
 			if(MatrixBuffer == null || p_matrix != matrix)
 			{
@@ -244,35 +231,24 @@ namespace Tayracer.Raycasts
 			_computeKernel.SetValueArgument(2, origin);
 			_computeKernel.SetMemoryArgument(3, MatrixBuffer);
 			_computeKernel.SetMemoryArgument(4, ResultDataBuffer);
-			//Console.WriteLine("Executing kernel.");
 
+			_commands.Finish();
             var swnew = Stopwatch.StartNew();
-            Console.WriteLine("Executing.");
-            _commands.Execute(_computeKernel, null, new long[] { Width, Height }, null, _computeEventList);
-            Console.WriteLine("Executed.");
+			_commands.Execute(_computeKernel, null, new long[] { Width, Height }, null, _computeEventList);
+			_commands.Finish();
 			swnew.Stop();
 			_avrgExc.AddValue(swnew.ElapsedMilliseconds);
 
-			/*
-            Console.WriteLine("Releasing.");
-            _commands.Finish();
-            _commands.ReleaseGLObjects(mem, null);
-            Console.WriteLine("Released.");
-			*/
-
-			//Console.WriteLine("Kernel executed, reading buffers.");
-			var arrC = new byte[count * 3];
-            GCHandle arrCHandle = GCHandle.Alloc(arrC, GCHandleType.Pinned);
+			GCHandle arrCHandle = GCHandle.Alloc(_res, GCHandleType.Pinned);
 
 			_commands.Read(ResultDataBuffer, true, 0, count*3, arrCHandle.AddrOfPinnedObject(), _computeEventList);
 			_commands.Finish();
-			//Console.WriteLine("Buffers read. Freeing resources.");
             arrCHandle.Free();
 
-			//sw.Stop();
-			//Console.WriteLine("Took {0} ms", sw.ElapsedMilliseconds);
-			return arrC; //new byte[count*3];
+			return _res;
         }
+
+		private float[] _res;
 
 		private Vector3[] _origins = new Vector3[0];
 		private Vector3[] _targets = new Vector3[0];
@@ -359,9 +335,9 @@ namespace Tayracer.Raycasts
 			//Console.WriteLine("Gpu: {0} ms", sw.ElapsedMilliseconds);
 		
 			_tex.Bind();
-			_tex.TexImage(Width, Height, col, PixelInternalFormat.Rgb, PixelFormat.Rgb, PixelType.UnsignedByte);
+			_tex.TexImage(Width, Height, col, PixelInternalFormat.Rgb, PixelFormat.Rgb, PixelType.Float);
 
-			Title = string.Format("Tayracer {0} {1} {2}", _avrgPre.Format(), _avrgRnd.Format(), _avrgExc.Format());
+			Title = string.Format("Tayracer {1} {2} {0}", _avrgPre.Format(), _avrgRnd.Format(), _avrgExc.Format());
 		}
 
 

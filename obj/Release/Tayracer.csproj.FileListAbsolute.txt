@@ -1,0 +1,16 @@
+C:\Files\Dropbox\Coding\Source Control\Tayracer\bin\Release\Assimp64.dll
+C:\Files\Dropbox\Coding\Source Control\Tayracer\bin\Release\Assimp32old.dll
+C:\Files\Dropbox\Coding\Source Control\Tayracer\bin\Release\Assimp32.dll
+C:\Files\Dropbox\Coding\Source Control\Tayracer\bin\Release\Tayracer.exe
+C:\Files\Dropbox\Coding\Source Control\Tayracer\bin\Release\Tayracer.pdb
+C:\Files\Dropbox\Coding\Source Control\Tayracer\bin\Release\NeptuneRenderEngine.dll
+C:\Files\Dropbox\Coding\Source Control\Tayracer\bin\Release\OpenTK.dll
+C:\Files\Dropbox\Coding\Source Control\Tayracer\bin\Release\AssimpNet.dll
+C:\Files\Dropbox\Coding\Source Control\Tayracer\bin\Release\NeptuneRenderEngine.pdb
+C:\Files\Dropbox\Coding\Source Control\Tayracer\bin\Release\AssimpNet.xml
+C:\Files\Dropbox\Coding\Source Control\Tayracer\obj\Release\Tayracer.csprojResolveAssemblyReference.cache
+C:\Files\Dropbox\Coding\Source Control\Tayracer\obj\Release\Tayracer.exe
+C:\Files\Dropbox\Coding\Source Control\Tayracer\obj\Release\Tayracer.pdb
+C:\Files\Dropbox\Coding\Source Control\Tayracer\bin\Release\Cloo.dll
+C:\Files\Dropbox\Coding\Source Control\Tayracer\bin\Release\Cloo.xml
+C:\Files\Dropbox\Coding\Source Control\Tayracer\bin\Release\kernel.c

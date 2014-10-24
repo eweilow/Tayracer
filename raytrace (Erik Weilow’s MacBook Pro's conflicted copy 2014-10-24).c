@@ -169,7 +169,7 @@ float4* trace(float4*, float4*);
 float4* trace(float4* source, float4* target)
 {
     int c = 4;
-    float4 spheres[4] = { { 5, -1, 5, 1 }, { 15, 0, 5, 3 }, { 5, 1, 15, 2}, { 25, 0, 5, 1 }};
+    float4 spheres[4] = { { 5, 0, 5, 4 }, { 15, 0, 5, 3 }, { 5, 5, 15, 2}, { 25, 0, 5, 1 }};
 	float4 col[1];
 	col->x = 0; col->y = 0; col->z = 0; col->w = -1;
 

@@ -34,7 +34,7 @@ namespace Tayracer
 		{
 			using(var rt = new RayTracer(512, 512))
 			{
-				rt.VSync = VSyncMode.Off;
+				rt.VSync = VSyncMode.On;
 				rt.Run(30.0);
 			}
 			return;/*
