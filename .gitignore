@@ -1,7 +1,5 @@
 bin/
 bin/Debug
 bin/Release
-
-obj/Debug/.NETFramework,Version=v4.5.AssemblyAttribute.cs
-
-obj/Debug/DesignTimeResolveAssemblyReferencesInput.cache
+obj/
+obj/Debug
