@@ -165,39 +165,130 @@ struct intersection getIntersections(float4* sphere, float4* origin, float4* tar
     return inter;
 }
 
+float3 calcLight(float4*, int, int, float4*, float3*, float4*, float3*);
+float3 calcLight(float4* sph, int len, int ignore, float4* p, float3* n, float4* l_p, float3* l_c)
+{
+    float3 lightRet;
+    lightRet.x = 0; lightRet.y = 0; lightRet.z = 0;
+
+    int intersections = 0;
+    for(int i = 0; i < len; i++)
+    {
+    	if(i == ignore) continue;
+
+    	float4* sp = &sph[i];
+    	struct intersection shadow = getIntersections(sp, p, l_p);
+		if(shadow.length > 0) intersections++;
+    }
+    /*if(intersections==0)
+	{
+		float3 l_d = p->xyz - l_p->xyz;
+		float3 normal = *n;
+		float dp = dot(normal, -fast_normalize(l_d));
+		lightRet.x = l_c->x * dp;
+		lightRet.y = l_c->y * dp;
+		lightRet.z = l_c->z * dp;
+	}*/
+	if(intersections==0)
+	{
+		lightRet.x = 1;
+	}
+	else
+	{
+		lightRet.y = 1;
+	}
+	return lightRet;
+}
+
+/*
+// px,py,pz=(ray origin position - sphere position),
+function check_ray(px,py,pz,dx,dy,dz,r){
+ 
+    //calculate the determinant
+    var det,b;
+    b = -dot(px,py,pz,dx,dy,dz);
+    det = b*b - dot(px,py,pz,px,py,pz) + r*r;
+ 
+    if (det<0) //if it's less than 0, there's no intersection, return -1
+        return -1;
+ 
+    //calculate the two values for t
+    det= sqrt(det);
+    t1= b - det;
+    t2= b + det;  //not really necessary!
+ 
+    //always return t1, as it'll always be the shortest distance
+    return t1;
+}*/
+
+float findInter(float3*, float3*, float);
+float findInter(float3* toSphere, float3* rayDir, float r)
+{
+    float3 p = *toSphere;
+    float3 d = *rayDir;
+    float b = -dot(p, d);
+    float det = b*b - dot(p, p) + r*r;
+
+    if(det < 0) return -1;
+    det = sqrt(det);
+
+    return b - det;
+}
+
 float4* trace(float4*, float4*);
 float4* trace(float4* source, float4* target)
 {
     int c = 4;
     float4 spheres[4] = { { 5, -1, 5, 1 }, { 15, 0, 5, 3 }, { 5, 1, 15, 2}, { 25, 0, 5, 1 }};
+    float4 lights[1] = { {0,0,0,0} };
+    float3 lightsCol[1] = { {1,0,0} };
 	float4 col[1];
 	col->x = 0; col->y = 0; col->z = 0; col->w = -1;
 
-	float3 eye = source[0].xyz;
+	float3 eye = source->xyz;
 	for(int i = 0; i < c; i++)
 	{
 		float4* sp = &spheres[i];
+		float3 toSp = eye - sp->xyz;
+		float3 targ = normalize(target->xyz - source->xyz);
+		float f = findInter(&toSp, &targ, sp->w);
+		if(f >= 0) 
+		{
+			col->x = 1;
+		}
+		/*
 		struct intersection inter = getIntersections(sp, source, target);
 		if(inter.length > 0)
 		{
-			float3 sphCent = sp[0].xyz;
-			float3 inc = inter.points[0].xyz;
+			col->x = 1;/ *
+			float3 sphCent = sp->xyz;
+			float3 inc = inter.points->xyz;
 
 			float3 normal = fast_normalize(sphCent - inc);
 			float d = fast_distance(sphCent, inc);
 
-			float dp = dot(normal, -fast_normalize(inc));
+			//float dp = dot(normal, -fast_normalize(inc)) * shadowFac;
+			float3 colc;
+			colc.x = 0; colc.y = 0; colc.z = 0;
+			for(int j = 0; j < 1; j++)
+			{
+				float3 retcol = calcLight(spheres, c, i, inter.points, &normal, &lights[i], &lightsCol[i]);
+				colc.x = colc.x + retcol.x;
+				colc.y = colc.y + retcol.y;
+				colc.z = colc.z + retcol.z;
+			}
+
 			if(col->w < 0)
 				col->w = d;
 
 			if(col->w <= d)
 			{
-				col->x = dp;
-				col->y = dp;
-				col->z = dp;
+				col->x = colc.x;
+				col->y = colc.y;
+				col->z = colc.z;
 				col->w = d;
-			}
-		}
+			}* /
+		}*/
 	}
 	return col;
 }
