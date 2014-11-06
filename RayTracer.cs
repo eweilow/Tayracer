@@ -286,6 +286,7 @@ namespace Tayracer.Raycasts
 
 		private long sampledPre, sampledRender;
 
+		private Vector3 _pos = Vector3.Zero;
 		private float _angle;
 		protected override void OnUpdateFrame(FrameEventArgs e)
 		{
@@ -293,16 +294,22 @@ namespace Tayracer.Raycasts
 
 			var sw = Stopwatch.StartNew();
 			if(Keyboard[Key.Q])
-				_angle += 0.005f;
+				_angle -= 0.01f;
 			else
 			if(Keyboard[Key.E])
-				_angle -= 0.005f;
+				_angle += 0.01f;
 
-			var c = new Vector3(0f, 0f, 0f);
+			var forward = new Vector3((float)Math.Cos(_angle), 0f, (float)Math.Sin(_angle));
+			var right = Vector3.Cross(forward, Vector3.UnitY);
+
+			if(Keyboard[Key.W]) _pos += forward * 0.1f;
+			if(Keyboard[Key.S]) _pos -= forward * 0.1f;
+			if(Keyboard[Key.A]) _pos -= right * 0.1f;
+			if(Keyboard[Key.D]) _pos += right * 0.1f;
 			var modelview = Matrix4.LookAt(
-				                c,
-				                c + new Vector3((float)Math.Cos(_angle), 0f, (float)Math.Sin(_angle)),
-				                Vector3.UnitY);
+				_pos,
+				_pos + forward,
+				Vector3.UnitY);
 			var scale = Matrix4.CreateScale((1f / Width) * 2f, (1f / Height) * 2f, 1f);
 			var translate = Matrix4.CreateTranslation(-1f, -1f, 0f);
 			var mv = Matrix4.Mult(modelview, projection);
@@ -329,21 +336,22 @@ namespace Tayracer.Raycasts
 			//Console.WriteLine("Pre: {0} ms", sw.ElapsedMilliseconds);
 			sw.Reset();
 			sw.Restart();
-			var col = ExecuteGpu(Width, Height, c, _invModelview);
+			_col = ExecuteGpu(Width, Height, _pos, _invModelview);
             sw.Stop();
             _avrgRnd.AddValue(sw.ElapsedMilliseconds);
 			//Console.WriteLine("Gpu: {0} ms", sw.ElapsedMilliseconds);
 		
-			_tex.Bind();
-			_tex.TexImage(Width, Height, col, PixelInternalFormat.Rgb, PixelFormat.Rgb, PixelType.Float);
-
 			Title = string.Format("Tayracer {1} {2} {0}", _avrgPre.Format(), _avrgRnd.Format(), _avrgExc.Format());
 		}
 
+		private float[] _col;
 
 		protected override void OnRenderFrame(FrameEventArgs e)
 		{
 			base.OnRenderFrame(e);
+
+			_tex.Bind();
+			_tex.TexImage(Width, Height, _col, PixelInternalFormat.Rgb, PixelFormat.Rgb, PixelType.Float);
 
 
 			GL.ClearColor(0f, 0f, 0f, 0f);
