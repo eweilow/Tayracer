@@ -49,15 +49,21 @@ namespace Tayracer.Raycasts
 		{
 			base.OnLoad(e);
 
-			Console.WriteLine("Select a platform.");
-			int j = 0;
-			foreach(var pl in ComputePlatform.Platforms)
-                Console.WriteLine("\t{0} - {1}", j++, pl.Name);
+		    ComputePlatform platform;
+		    if (ComputePlatform.Platforms.Count > 1)
+		    {
+		        Console.WriteLine("Select a platform.");
+		        int j = 0;
+		        foreach (var pl in ComputePlatform.Platforms)
+		            Console.WriteLine("\t{0} - {1}", j++, pl.Name);
 
-		    //string str = Console.ReadLine();
+		        string str = Console.ReadLine();
 
-			int choice = 0; //int.Parse(str);
-		    var platform = ComputePlatform.Platforms[choice];
+                int choice = int.Parse(str);
+                platform = ComputePlatform.Platforms[choice];
+		    }
+		    else 
+                platform = ComputePlatform.Platforms[0];
 
             Console.WriteLine("Running OpenCL on '{0}'", platform.Name);
 		    Console.WriteLine("Platform ComputeDeviceTypes: ");
@@ -166,10 +172,6 @@ namespace Tayracer.Raycasts
 				//throw ex;
 
 			}
-			catch(Exception ex)
-			{
-				throw ex;
-			}
 
 			_tex = new Texture2D();
 			_tex.TexImage(1, 1);
@@ -228,7 +230,7 @@ namespace Tayracer.Raycasts
 				
 			_computeKernel.SetValueArgument(0, p_width);
 			_computeKernel.SetValueArgument(1, p_height);
-			_computeKernel.SetValueArgument(2, origin);
+			_computeKernel.SetValueArgument(2, new Vector4(origin, 0));
 			_computeKernel.SetMemoryArgument(3, MatrixBuffer);
 			_computeKernel.SetMemoryArgument(4, ResultDataBuffer);
 
@@ -241,8 +243,11 @@ namespace Tayracer.Raycasts
 
 			GCHandle arrCHandle = GCHandle.Alloc(_res, GCHandleType.Pinned);
 
-			_commands.Read(ResultDataBuffer, true, 0, count*3, arrCHandle.AddrOfPinnedObject(), _computeEventList);
-			_commands.Finish();
+            _commands.Read(ResultDataBuffer, false, 0, count * 3, arrCHandle.AddrOfPinnedObject(), _computeEventList);
+            _commands.Finish();
+		
+
+			//_commands.Finish();
             arrCHandle.Free();
 
 			return _res;

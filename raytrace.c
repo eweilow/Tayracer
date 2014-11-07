@@ -30,6 +30,18 @@ float findInter(float3 toSphere, float3 rayDir, float r)
     return b - sqrt(det);
 }
 
+float findInterPlane(float3, float3, float3, float3);
+float findInterPlane(float3 pNormal, float3 pPos, float3 rayPos, float3 rayDir)
+{
+	float dotProduct = dot(rayDir,pNormal);
+	if ( dotProduct == 0){
+		return -1;
+	}
+	float t1 = dot(pNormal,pPos-rayPos) / dotProduct ;
+
+	return t1;
+}
+
 float3 reflect(float3, float3);
 float3 reflect(float3 V, float3 N){
 	return V - 2.0f * dot( V, N ) * N;
@@ -43,47 +55,101 @@ float3 refract(float3 V, float3 N, float refrIndex)
 	return (refrIndex * V) + (refrIndex * cosI - sqrt( cosT2 )) * N;
 }
 
-#define MAX_STEPS 1
+#define MAX_STEPS 1024
 
-float4 trace(float4*, int*, int, int, float3, float3);
-float4 trace(float4* spheres, int* c, int skip, int steps, float3 source, float3 target)
+float3 grid(float3);
+float3 grid(float3 pos)
+{
+	float f = (fmod(floor(pos.x) + floor(pos.z), 2) < 1) ? 0.3 : 1;
+	float3 checker = {f,f,f};
+	return checker;
+}
+
+float4 trace(float4*, float4*, int*, int, int, float3, float3);
+float4 trace(float4* spheres, float4* cols, int* c, int skip, int steps, float3 source, float3 target)
 {
     //const float4 lights[1] = { {0,0,0,0} };
     //const float3 lightsCol[1] = { {1,0,0} };
 	float4 col;
 	col.x = 0; col.y = 0; col.z = 0; col.w = -1;
 
+	float3 targ = normalize(target - source);
 	for(int i = 0; i < *c; i++)
 	{
 		if(i == skip) continue;
 
 		float4* sp = &spheres[i];
+		float4* spcol = &cols[i];
 
 		float3 sphere_pos = sp->xyz;
 		float sphere_radius = sp->w;
 
 		float3 toSp = (source - sphere_pos);
-		float3 targ = normalize(target - source);
 		float f = findInter(toSp, targ, sphere_radius);
 		if(f >= 0) 
 		{
 			float3 incident = targ * f + source;
 			float3 normal = normalize(incident - sphere_pos);
 
+			if(col.w < 0) col.w = f;
+			else if(f >= col.w) continue;
+			else col.w = f;
+
 			if(steps < MAX_STEPS) { 
 				float3 refl = reflect(targ, normal);
-				float4 reflCol = trace(spheres, c, i, steps+1, incident, incident + refl);
+				float4 reflCol = trace(spheres, cols, c, i, steps+1, incident, incident + refl);
 
-				col.x = normal.x * 0.6 + reflCol.x * 0.4;
-				col.y = normal.y * 0.6 + reflCol.y * 0.4;
-				col.z = normal.z * 0.6 + reflCol.z * 0.4;
+				float3 spCol = spcol->xyz;
+
+				float fac = spcol->w;
+				float oneFac = 1.0 - fac;
+
+				col.x = spCol.x * oneFac + reflCol.x * fac;
+				col.y = spCol.y * oneFac + reflCol.y * fac;
+				col.z = spCol.z * oneFac + reflCol.z * fac;
 			}
 			else
 			{
-				col.x = normal.x;
-             	col.y = normal.y;
-             	col.z = normal.z;
+				float3 g = grid(incident);
+				col.x = g.x;
+             	col.y = g.y;
+             	col.z = g.z;
 			}
+		}
+	}
+
+	if(skip == -2) return col;
+	//float findInterPlane(float3 pNormal, float3 pPos, float3 rayPos, float3 rayDir)
+	/* plane */
+	float3 pnormal = { 0, 1, 0 };
+	float3 ppos = { 0, -1, 0 };
+
+	float fPlane = findInterPlane(pnormal, ppos, source, targ);
+	if(fPlane >= 0) 
+	{
+		float3 incident = targ * fPlane + source;
+		float3 normal = pnormal;
+
+		if(col.w < 0) col.w = fPlane;
+		else if(fPlane >= col.w) return col;
+		else col.w = fPlane;
+
+		float3 tex = grid(incident);
+		const float planeFac = 0.5;
+		const float onePlaneFac = 1.0 - planeFac;
+		if(steps < MAX_STEPS) { 
+			float3 refl = reflect(targ, normal);
+			float4 reflCol = trace(spheres, cols, c, -2, steps+1, incident, incident + refl);
+
+			col.x = tex.x * onePlaneFac + reflCol.x * planeFac;
+			col.y = tex.y * onePlaneFac + reflCol.y * planeFac;
+			col.z = tex.z * onePlaneFac + reflCol.z * planeFac;
+		}
+		else
+		{
+			col.x = tex.x;
+         	col.y = tex.y;
+         	col.z = tex.z;
 		}
 	}
 	return col;
@@ -107,12 +173,13 @@ kernel void MatrixMultiply(
     int c = 4;
 
     const float4 spheres[4] = { { 5, -1, 5, 1 }, { 15, 0, 5, 3 }, { 5, 1, 15, 2}, { 25, 0, 5, 1 }};
+    const float4 spherecolors[4] = { { 1, 0.2, 0.1, 0.5 }, { 0.1, 1, 0.1, 0.7 },{ 1.0, 0.1, 0.1, 0.95 },{ 0.1, 0.2, 1.0, 0.5 }};
 
 	struct Matrix4x4 mat[1] = { matrix[0] };
 
 	applyMat(mat, &target);
 
-	float4 col = trace(spheres, &c, -1, 0, (origin.xyz), target);
+	float4 col = trace(spheres, spherecolors, &c, -1, 0, (origin.xyz), target);
 
 	output[index]   = col.x;
 	output[index+1] = col.y;
