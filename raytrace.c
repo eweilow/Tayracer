@@ -55,7 +55,7 @@ float3 refract(float3 V, float3 N, float refrIndex)
 	return (refrIndex * V) + (refrIndex * cosI - sqrt( cosT2 )) * N;
 }
 
-#define MAX_STEPS 1024
+#define MAX_STEPS 8192
 
 float3 grid(float3);
 float3 grid(float3 pos)
@@ -179,6 +179,7 @@ kernel void MatrixMultiply(
 
 	applyMat(mat, &target);
 
+	/* p, p, p, copy, copy, copy, copy */
 	float4 col = trace(spheres, spherecolors, &c, -1, 0, (origin.xyz), target);
 
 	output[index]   = col.x;

@@ -217,7 +217,7 @@ namespace Tayracer.Raycasts
 				ResultDataBuffer.Dispose();
 				ResultDataBuffer = new ComputeBuffer<float>(_computeContext, ComputeMemoryFlags.WriteOnly, count*3);
 
-				_res = new float[count * 3];
+				//_res = new float[count * 3];
 			}
 
 			if(MatrixBuffer == null || p_matrix != matrix)
@@ -241,16 +241,13 @@ namespace Tayracer.Raycasts
 			swnew.Stop();
 			_avrgExc.AddValue(swnew.ElapsedMilliseconds);
 
-			GCHandle arrCHandle = GCHandle.Alloc(_res, GCHandleType.Pinned);
-
-            _commands.Read(ResultDataBuffer, false, 0, count * 3, arrCHandle.AddrOfPinnedObject(), _computeEventList);
+			if(_col== null || _col.Length != count * 3) _col = new float[count * 3];
+			_commands.ReadFromBuffer(ResultDataBuffer, ref _col, true, _computeEventList);
+            //_commands.Read(ResultDataBuffer, false, 0, count * 3, arrCHandle.AddrOfPinnedObject(), _computeEventList);
             _commands.Finish();
 		
 
-			//_commands.Finish();
-            arrCHandle.Free();
-
-			return _res;
+			return new float[0];
         }
 
 		private float[] _res;
@@ -341,7 +338,7 @@ namespace Tayracer.Raycasts
 			//Console.WriteLine("Pre: {0} ms", sw.ElapsedMilliseconds);
 			sw.Reset();
 			sw.Restart();
-			_col = ExecuteGpu(Width, Height, _pos, _invModelview);
+			ExecuteGpu(Width, Height, _pos, _invModelview);
             sw.Stop();
             _avrgRnd.AddValue(sw.ElapsedMilliseconds);
 			//Console.WriteLine("Gpu: {0} ms", sw.ElapsedMilliseconds);
