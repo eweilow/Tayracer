@@ -14,6 +14,9 @@ using OpenTK.Graphics.OpenGL;
 using NeptuneRenderEngine.Engine.Interface.Textures;
 using NeptuneRenderEngine.Engine.Utilities;
 using OpenTK.Graphics;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Threading;
 
 namespace Tayracer.Raycasts
 {
@@ -87,7 +90,14 @@ namespace Tayracer.Raycasts
 		    {
                 _computeContextPropertyList = new ComputeContextPropertyList(new ComputeContextProperty[] { p1 });
             }
-            _computeContext = new ComputeContext(platform.Devices[0].Type, _computeContextPropertyList, null, IntPtr.Zero);
+
+            //var platform = ComputePlatform.Platforms[0];
+            var devices = new List<ComputeDevice>();
+            devices.Add(platform.Devices[1]);
+            var properties = new ComputeContextPropertyList(platform);
+            _computeContext = new ComputeContext(devices, properties, null, IntPtr.Zero);
+
+            //_computeContext = new ComputeContext(platform.Devices[0].Type, _computeContextPropertyList, null, IntPtr.Zero);
 
 
 		    _kernelSource = File.ReadAllText("raytrace.c");
@@ -97,7 +107,7 @@ namespace Tayracer.Raycasts
 			try
 			{
 				Console.WriteLine("Building program");
-                _computeProgram.Build(platform.Devices, null, null, IntPtr.Zero);
+                _computeProgram.Build(devices, null, null, IntPtr.Zero);
 
 				Console.WriteLine("Creating kernel");
 				_computeKernel = _computeProgram.CreateKernel("MatrixMultiply");
@@ -231,15 +241,19 @@ namespace Tayracer.Raycasts
 			_computeKernel.SetValueArgument(0, p_width);
 			_computeKernel.SetValueArgument(1, p_height);
 			_computeKernel.SetValueArgument(2, new Vector4(origin, 0));
+			//_computeKernel.SetValueArgument(3, matrix);
 			_computeKernel.SetMemoryArgument(3, MatrixBuffer);
 			_computeKernel.SetMemoryArgument(4, ResultDataBuffer);
 
 			_commands.Finish();
             var swnew = Stopwatch.StartNew();
-			_commands.Execute(_computeKernel, null, new long[] { Width, Height }, null, _computeEventList);
+			_commands.Execute(_computeKernel, null, new long[] { width, height }, null, _computeEventList);
 			_commands.Finish();
 			swnew.Stop();
 			_avrgExc.AddValue(swnew.ElapsedMilliseconds);
+
+			_texWidth = width;
+			_texHeight = height;
 
 			if(_col== null || _col.Length != count * 3) _col = new float[count * 3];
 			_commands.ReadFromBuffer(ResultDataBuffer, ref _col, true, _computeEventList);
@@ -252,8 +266,8 @@ namespace Tayracer.Raycasts
 
 		private float[] _res;
 
-		private Vector3[] _origins = new Vector3[0];
-		private Vector3[] _targets = new Vector3[0];
+		//private Vector3[] _origins = new Vector3[0];
+		//private Vector3[] _targets = new Vector3[0];
 		private Matrix4 _inverseProjection, projection;
 		private float _zDepth, _zMult;
 
@@ -261,15 +275,15 @@ namespace Tayracer.Raycasts
 		{
 			base.OnResize(e);
 
-			_origins = new Vector3[Width * Height];
-			_targets = new Vector3[Width * Height];
+			//_origins = new Vector3[Width * Height];
+			//_targets = new Vector3[Width * Height];
 
 			_zDepth = 2000.1f - 0.1f;
 			_zMult = 1/_zDepth;
 			projection = Matrix4.CreatePerspectiveFieldOfView(MathHelper.PiOver2, (float)Width / Height, 0.1f, 2000.1f);
 			_inverseProjection = Matrix4.Invert(projection);
 
-			for (int x = 0; x < Width; x++)
+			/*for (int x = 0; x < Width; x++)
 			{
 				for (int y = 0; y < Height; y++)
 				{
@@ -281,13 +295,16 @@ namespace Tayracer.Raycasts
 					_origins[y * Width + x] = screenVec.Xyz / screenVec.W;
 					_targets[y * Width + x] = targetVec.Xyz / targetVec.W;
 				}
-			}
+			}*/
 		}
 
 		private Average _avrgPre = new Average(), _avrgRnd = new Average(), _avrgExc = new Average();
 
 		private long sampledPre, sampledRender;
 
+		double mult = 1.0;
+
+		private bool _pressed = false;
 		private Vector3 _pos = Vector3.Zero;
 		private float _angle;
 		protected override void OnUpdateFrame(FrameEventArgs e)
@@ -296,23 +313,60 @@ namespace Tayracer.Raycasts
 
 			var sw = Stopwatch.StartNew();
 			if(Keyboard[Key.Q])
-				_angle -= 0.01f;
-			else
+				_angle -= 2f * (float)UpdateTime;
 			if(Keyboard[Key.E])
-				_angle += 0.01f;
+					_angle += 2f * (float)UpdateTime;
 
 			var forward = new Vector3((float)Math.Cos(_angle), 0f, (float)Math.Sin(_angle));
 			var right = Vector3.Cross(forward, Vector3.UnitY);
 
-			if(Keyboard[Key.W]) _pos += forward * 0.1f;
-			if(Keyboard[Key.S]) _pos -= forward * 0.1f;
-			if(Keyboard[Key.A]) _pos -= right * 0.1f;
-			if(Keyboard[Key.D]) _pos += right * 0.1f;
+			if(Keyboard[Key.W]) _pos += forward * 3f * (float)UpdateTime;
+			if(Keyboard[Key.S]) _pos -= forward * 3f * (float)UpdateTime;
+			if(Keyboard[Key.A]) _pos -= right * 3f * (float)UpdateTime;
+			if(Keyboard[Key.D]) _pos += right * 3f * (float)UpdateTime;
+
+
+			if(Keyboard[Key.Number1] && mult > 0.02)
+			{
+				mult -= 0.01;
+			}
+			if(Keyboard[Key.Number2] && mult < 50)
+			{
+				mult += 0.01;
+			}
+			//double mult = 5;
+			if(mult > 1)
+			{
+				_tex.SetTextureMagFilter(TextureMagFilter.Linear);
+				_tex.SetTextureMinFilter(TextureMinFilter.Linear);
+			}
+			else
+			{
+				_tex.SetTextureMagFilter(TextureMagFilter.Nearest);
+				_tex.SetTextureMinFilter(TextureMinFilter.Nearest);
+			}
+
+			bool _screenshot = false;
+			double _tmult = mult;
+			if(Keyboard[Key.Number3] && !_pressed)
+			{
+				_pressed = true;
+				_screenshot = true;
+
+				mult = 0.1;
+			}
+			else
+			if(!Keyboard[Key.Number3] && _pressed)
+				_pressed = false;
+
+			int width = (int)(mult * Width);
+			int height = (int)(mult * Height);
+
 			var modelview = Matrix4.LookAt(
 				_pos,
 				_pos + forward,
 				Vector3.UnitY);
-			var scale = Matrix4.CreateScale((1f / Width) * 2f, (1f / Height) * 2f, 1f);
+			var scale = Matrix4.CreateScale((1f / width) * 2f, (1f / height) * 2f, 1f);
 			var translate = Matrix4.CreateTranslation(-1f, -1f, 0f);
 			var mv = Matrix4.Mult(modelview, projection);
 			var _invModelview = Matrix4.Mult(scale, Matrix4.Mult(translate, Matrix4.Invert(mv)));
@@ -338,14 +392,70 @@ namespace Tayracer.Raycasts
 			//Console.WriteLine("Pre: {0} ms", sw.ElapsedMilliseconds);
 			sw.Reset();
 			sw.Restart();
-			ExecuteGpu(Width, Height, _pos, _invModelview);
+
+
+			ExecuteGpu(width, height, _pos, _invModelview);
             sw.Stop();
             _avrgRnd.AddValue(sw.ElapsedMilliseconds);
 			//Console.WriteLine("Gpu: {0} ms", sw.ElapsedMilliseconds);
 		
 			Title = string.Format("Tayracer {1} {2} {0}", _avrgPre.Format(), _avrgRnd.Format(), _avrgExc.Format());
+		
+			if(_screenshot)
+			{
+				var t = new Thread(new ParameterizedThreadStart(SaveScreenshot));
+				t.Start(new Size(width, height));
+
+				mult = _tmult;
+			}
 		}
 
+		private void SaveScreenshot(object obj)
+		{
+			Size s = (Size)obj;
+			const string format = "screenshots/scr{0}.png";
+
+			if(!Directory.Exists("screenshots"))
+				Directory.CreateDirectory("screenshots");
+
+			int i = 0;
+			string file = string.Format(format, i);
+			while(File.Exists(file))
+			{
+				Console.WriteLine("File exists: '{0}'", file);
+				file = string.Format(format, ++i);
+			}
+
+			var _data = _col.ToArray();
+			Console.WriteLine("Saving screenshot to '{0}'", file);
+
+			try 
+			{
+				using (Bitmap b = new Bitmap(s.Width, s.Height)) {
+					Console.WriteLine("Bitmap created.");
+
+
+					for(int x = 0; x < s.Width; x++)
+					{
+						Console.WriteLine("x: {0}", x);
+						for(int y = 0; y < s.Height; y++)
+						{
+							int index = (x * s.Width + y) * 3;
+							b.SetPixel(x, y, Color.FromArgb((int)(_data[index] * 255), (int)(_data[index + 1] * 255), (int)(_data[index + 2] * 255)));
+						}
+					}
+					Console.WriteLine("Saving bitmap.");
+					b.Save(file, ImageFormat.Png);
+				}
+				Console.WriteLine("Bitmap saved. Done.");
+			}
+			catch(Exception ex)
+			{
+				Console.WriteLine(ex);
+			}
+		}
+
+		private int _texWidth, _texHeight;
 		private float[] _col;
 
 		protected override void OnRenderFrame(FrameEventArgs e)
@@ -353,7 +463,7 @@ namespace Tayracer.Raycasts
 			base.OnRenderFrame(e);
 
 			_tex.Bind();
-			_tex.TexImage(Width, Height, _col, PixelInternalFormat.Rgb, PixelFormat.Rgb, PixelType.Float);
+			_tex.TexImage(_texWidth, _texHeight, _col, PixelInternalFormat.Rgb, OpenTK.Graphics.OpenGL.PixelFormat.Rgb, PixelType.Float);
 
 
 			GL.ClearColor(0f, 0f, 0f, 0f);
