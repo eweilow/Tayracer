@@ -84,13 +84,35 @@ struct CastResult
 	int cont;
 };
 
+struct RayCast
+{
+	float2 depth;
+	int id;
+};
+
+struct RayCast castRay(float4* spheres, int* sphereCount, struct CastResult* result, struct Ray* ray)
+{
+	struct RayCast cast;
+	cast.depth = (float2)(-1, -1);
+	for(int j = 0; j < *sphereCount; j++)
+	{
+		float4* sphere = &spheres[j];
+		float2 res = findInter(ray->source - sphere->xyz, ray->direction, sphere->w);
+
+		if(res.x < 0) { continue; }
+		if(cast.depth.x < 0 || res.x < cast.depth.x) { cast.depth.x = res.x; cast.id = j; }
+	}
+	return cast;
+}
+
 void castRays(float4* spheres, int* sphereCount, struct CastResult* results, struct Ray* rays, int count)
 {
 	for(int i = 0; i < count; i++)
 	{
 		if(results[i].cont == 0) continue;
 
-		float depth = -1;
+		struct RayCast cast = castRay(spheres, sphereCount, &results[i], &rays[i]);
+		/*
 		float4* closestSphere;
 		for(int j = 0; j < *sphereCount; j++)
 		{
@@ -99,29 +121,31 @@ void castRays(float4* spheres, int* sphereCount, struct CastResult* results, str
 			if(res.x < 0) { continue; }
 			if(depth < 0) depth = res.x;
 			else if(res.x < depth) { depth = res.x; closestSphere = &sphere; }
-		}
+		}*/
 
-		if(depth < 0) { results[i].cont = 0; continue; }
-
+		if(cast.depth.x < 0 || cast.id < 0) { results[i].cont = 0; continue; }
+		
 		results[i].inbound = rays[i].direction;
-		results[i].incident = rays[i].source + rays[i].direction * depth;
-		results[i].normal = normalize(closestSphere->xyz - results[i].incident);
+		results[i].incident = rays[i].source + rays[i].direction * cast.depth.x;
+		results[i].normal = normalize(spheres[cast.id].xyz - results[i].incident);
+		results[i].color = results[i].normal;
 	}
 }
 
-void applyRay(struct CastResult* result, struct Ray* stack, int* index)
+void applyRay(struct CastResult* result, struct Ray* stack, int* index, float4* spheres, int* sphereCount)
 {	
 	/* Reflection */
-	stack[i].source = rayResult.incident;
-	stack[i].direction = rayResult.normal;
+	stack[*index].source = result->incident;
+	stack[*index].direction = reflect(result->inbound, result->normal);
 
 	/* Refraction */
-	stack[i+1].source = rayResult.incident;
-	stack[i+1].normal = rayResult.normal;
+	stack[*index+1].source = result->incident;
+	stack[*index+1].direction = refract(result->inbound, result->normal, 1.45);
+
 	//Use this to cast 2 rays
 }
 
-#define BOUNCES 1 //
+#define BOUNCES 2 //
 #define BRANCHES 2 //One for reflection and one for refraction
 
 #define STACK_SIZE BOUNCES*BRANCHES
@@ -144,7 +168,7 @@ float3 idea(struct Ray source, float4* spheres, int* sphereCount)
 			struct CastResult rayResult = results[i];
 			if(rayResult.cont == 0) continue;
 
-			applyRay(&rayResult, stack, &i);
+			applyRay(&rayResult, stack, &i, spheres, sphereCount);
 			col = col + rayResult.color;
 		}
 	}
