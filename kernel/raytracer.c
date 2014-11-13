@@ -145,7 +145,7 @@ void applyRay(struct CastResult* result, struct Ray* stack, int* index, float4* 
 	//Use this to cast 2 rays
 }
 
-#define BOUNCES 2 //
+#define BOUNCES 1 //
 #define BRANCHES 2 //One for reflection and one for refraction
 
 #define STACK_SIZE BOUNCES*BRANCHES

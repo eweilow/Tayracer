@@ -27,7 +27,8 @@ float2 findInter(float3 toSphere, float3 rayDir, float r)
 
     if(det < 0) return -1;
 
-    float2 f = { -b - sqrt(det), -b + sqrt(det) };
+    float sqr = sqrt(det);
+    float2 f = { -b - sqr, -b + sqr };
 	
 	return f;
 }
