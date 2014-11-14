@@ -60,8 +60,26 @@ namespace Tayracer.Raycasts
 			Console.WriteLine("Running OpenCL on '{0}'\n - Device: {1}\n - Type: {2}", platform.Name, device.Name, device.Type);
 
 			var devices = new List<ComputeDevice>(){device};
-            var properties = new ComputeContextPropertyList(platform);
-			_computeContext = new ComputeContext(devices, properties, null, IntPtr.Zero);
+
+            if (device.Type == ComputeDeviceTypes.Gpu && Directory.Exists("C:"))
+            {
+                Console.WriteLine("Booting up CL/GL Interop.");
+                var curDC = wglGetCurrentDC();
+                var ctx = (IGraphicsContextInternal)GraphicsContext.CurrentContext;
+                var raw_context_handle = ctx.Context.Handle;
+                var p1 = new ComputeContextProperty(ComputeContextPropertyName.CL_GL_CONTEXT_KHR, raw_context_handle);
+                var p2 = new ComputeContextProperty(ComputeContextPropertyName.CL_WGL_HDC_KHR, curDC);
+                var p3 = new ComputeContextProperty(ComputeContextPropertyName.Platform, platform.Handle.Value); 
+                var props = new List<ComputeContextProperty>() { p1, p2, p3 };
+
+                ComputeContextPropertyList Properties = new ComputeContextPropertyList(props);
+                _computeContext = new ComputeContext(devices, Properties, null, IntPtr.Zero);
+            }
+            else
+            {
+                var properties = new ComputeContextPropertyList(platform);
+                _computeContext = new ComputeContext(devices, properties, null, IntPtr.Zero);
+            }
 
 		    _kernelSource = File.ReadAllText("kernel/raytracer.c");
 
@@ -82,10 +100,6 @@ namespace Tayracer.Raycasts
 				Console.WriteLine("Creating commands");
 				_commands = new ComputeCommandQueue(_computeContext, device, ComputeCommandQueueFlags.None);
 
-				MatrixBuffer = _computeContext.AllocateBuffer<Matrix4>(ComputeMemoryFlags.ReadOnly | ComputeMemoryFlags.CopyHostPointer, new Matrix4[1]);
-				DataBuffer = _computeContext.AllocateBuffer<float>(ComputeMemoryFlags.ReadOnly | ComputeMemoryFlags.CopyHostPointer, new float[5]);
-				ResultDataBuffer = _computeContext.AllocateBuffer<float>(ComputeMemoryFlags.WriteOnly, 1);
-			
 			}
 			catch (BuildProgramFailureComputeException ex)
 			{
@@ -93,15 +107,23 @@ namespace Tayracer.Raycasts
 				Console.WriteLine(_computeProgram.GetBuildLog(_computeContext.Devices[0]));
 				Exit();
 				Console.Read();
-			}
+            }
+            MatrixBuffer = _computeContext.AllocateBuffer<Matrix4>(ComputeMemoryFlags.ReadOnly | ComputeMemoryFlags.CopyHostPointer, new Matrix4[1]);
+            DataBuffer = _computeContext.AllocateBuffer<float>(ComputeMemoryFlags.ReadOnly | ComputeMemoryFlags.CopyHostPointer, new float[5]);
 
-			_tex = new Texture2D();
-			_tex.TexImage(1, 1);
-			_tex.SetTextureMagFilter(TextureMagFilter.Nearest);
-            _tex.SetTextureMinFilter(TextureMinFilter.Nearest);
+
+            _tex = new Texture2D();
+            _tex.TexImage(512, 512, IntPtr.Zero, PixelInternalFormat.Rgba32f, OpenTK.Graphics.OpenGL.PixelFormat.Rgba, PixelType.Float, 0);
+            _tex.SetTextureMagFilter(TextureMagFilter.Linear);
+            _tex.SetTextureMinFilter(TextureMinFilter.Linear);
+            //ResultDataBuffer = _computeContext.AllocateBuffer<float>(ComputeMemoryFlags.WriteOnly, 1);
+            _tex.Bind(0);
+
+            ResultDataBuffer = ComputeBuffer<float>.CreateFromGLTex2D<float>(_computeContext, ComputeMemoryFlags.WriteOnly, (int)_tex.TextureTarget, _tex.ID);
+
 		}
 
-		private int count = 0;
+		private int count = 0, byteCount = 0;
 
 		private int p_width = -1, p_height = -1;
 		private Vector3 p_origin;
@@ -120,19 +142,29 @@ namespace Tayracer.Raycasts
 			ResultDataBuffer.Dispose();
 		}
 
+		private Stopwatch _sw = new Stopwatch();
 		public void ExecuteGpu(int width, int height, Vector3 origin, Matrix4 matrix)
         {
+            List<ComputeMemory> c = new List<ComputeMemory>() { ResultDataBuffer };
+		    try
+		    {
+
 			if(ResultDataBuffer == null || p_width != width || p_height != height)
 			{
 				p_width = width;
 				p_height = height;
 				count = p_width * p_height;
+				byteCount = count * 4;
 
 				_computeKernel.SetValueArgument(0, p_width);
 				_computeKernel.SetValueArgument(1, p_height);
 
-				ResultDataBuffer.Dispose();
-				ResultDataBuffer = new ComputeBuffer<float>(_computeContext, ComputeMemoryFlags.WriteOnly, count*3);
+                //ResultDataBuffer.Dispose();
+                _tex.TexImage(p_width, p_height, IntPtr.Zero, PixelInternalFormat.Rgba32f, OpenTK.Graphics.OpenGL.PixelFormat.Rgba, PixelType.Float, 0);
+			    _tex.Bind(0);
+                //ResultDataBuffer = ComputeBuffer<float>.CreateFromGLTex2D<float>(_computeContext, ComputeMemoryFlags.WriteOnly, (int)_tex.TextureTarget, _tex.ID);
+				//ResultDataBuffer.Dispose();
+				//ResultDataBuffer = new ComputeBuffer<float>(_computeContext, ComputeMemoryFlags.WriteOnly, byteCount);
 
 				_computeKernel.SetMemoryArgument(4, ResultDataBuffer);
 			}
@@ -146,21 +178,38 @@ namespace Tayracer.Raycasts
 			{
 				p_origin = origin;
 			}
-				
-			_computeKernel.SetValueArgument(2, new Vector4(origin, 0));
+			_computeKernel.SetValueArgument(2, new Vector4(p_origin, 0));
+
+            GL.Finish();
+            _commands.AcquireGLObjects(c, null);
 
 			_commands.Finish();
-            var swnew = Stopwatch.StartNew();
-			_commands.Execute(_computeKernel, null, new long[] { width, height }, null, _computeEventList);
-			//_commands.Finish();
-			swnew.Stop();
-			_avrgExc.AddValue(swnew.ElapsedMilliseconds);
+			_sw.Reset();
+			_sw.Start();
+            _commands.Execute(_computeKernel, null, new long[] { width, height }, null, _computeEventList);
+			_sw.Stop();
+            _avrgExc.AddValue(_sw.ElapsedMilliseconds);
+
+            _commands.ReleaseGLObjects(c, null);
+            _commands.Finish();
+
 
 			_texWidth = width;
 			_texHeight = height;
 
-			if(_col== null || _col.Length != count * 3) _col = new float[count * 3];
-			_commands.ReadFromBuffer(ResultDataBuffer, ref _col, false, _computeEventList);
+			//if(_col== null || _col.Length != byteCount) _col = new float[byteCount];
+
+			//_commands.ReadFromBuffer(ResultDataBuffer, ref _col, false, _computeEventList);
+                //_commands.Finish();
+            }
+            catch (Exception)
+            {
+                _commands.ReleaseGLObjects(c, null);
+                _commands.Finish();
+                Exit();
+                
+                throw;
+            }
         }
 
 		private float[] _res;
@@ -236,8 +285,8 @@ namespace Tayracer.Raycasts
 			//double mult = 5;
 			if(mult > 1)
 			{
-				_tex.SetTextureMagFilter(TextureMagFilter.Linear);
-				_tex.SetTextureMinFilter(TextureMinFilter.Linear);
+                _tex.SetTextureMagFilter(TextureMagFilter.Nearest);
+                _tex.SetTextureMinFilter(TextureMinFilter.Nearest);
 			}
 			else
 			{
@@ -302,11 +351,12 @@ namespace Tayracer.Raycasts
 		
 			if(_screenshot)
 			{
+				/*
 			    _scrData = _col;
 				var t = new Thread(new ParameterizedThreadStart(SaveScreenshot));
 				t.Start(new Size(width, height));
 
-				mult = _tmult;
+				mult = _tmult;*/
 			}
 		}
 
@@ -367,8 +417,8 @@ namespace Tayracer.Raycasts
 		{
 			base.OnRenderFrame(e);
 
-			_tex.Bind();
-			_tex.TexImage(_texWidth, _texHeight, _col, PixelInternalFormat.Rgb, OpenTK.Graphics.OpenGL.PixelFormat.Rgb, PixelType.Float);
+			//_tex.Bind();
+			//_tex.TexImage(_texWidth, _texHeight, _col, PixelInternalFormat.Rgba, OpenTK.Graphics.OpenGL.PixelFormat.Rgba, PixelType.Float);
 
 
 			GL.ClearColor(0f, 0f, 0f, 0f);

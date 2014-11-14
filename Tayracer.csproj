@@ -43,7 +43,6 @@
     <Compile Include="ITraceable.cs" />
     <Compile Include="Ray.cs" />
     <Compile Include="ScreenRender.cs" />
-    <Compile Include="GravityCalc.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
