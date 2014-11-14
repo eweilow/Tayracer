@@ -49,8 +49,6 @@ namespace Tayracer.Raycasts
         [DllImport("opengl32.dll")]
         extern static IntPtr wglGetCurrentDC();
 
-		private bool _useInterop = false; 
-
 		protected override void OnLoad(EventArgs e)
 		{
 			base.OnLoad(e);
@@ -65,7 +63,6 @@ namespace Tayracer.Raycasts
 
             if (device.Type == ComputeDeviceTypes.Gpu && Directory.Exists("C:"))
             {
-				_useInterop = true;
                 Console.WriteLine("Booting up CL/GL Interop.");
                 var curDC = wglGetCurrentDC();
                 var ctx = (IGraphicsContextInternal)GraphicsContext.CurrentContext;
@@ -87,7 +84,7 @@ namespace Tayracer.Raycasts
 		    _kernelSource = File.ReadAllText("kernel/raytracer.c");
 
 			Console.WriteLine("Creating program");
-			_computeProgram = new ComputeProgram(_computeContext, new string[] {_useInterop ? "#define INTEROP\n" : "", _kernelSource});
+			_computeProgram = new ComputeProgram(_computeContext, new string[] {_kernelSource});
 			try
 			{
 				Console.WriteLine("Building program");
@@ -122,10 +119,8 @@ namespace Tayracer.Raycasts
             //ResultDataBuffer = _computeContext.AllocateBuffer<float>(ComputeMemoryFlags.WriteOnly, 1);
             _tex.Bind(0);
 
-			if(_useInterop)
-            	ResultDataBuffer = ComputeBuffer<float>.CreateFromGLTex2D<float>(_computeContext, ComputeMemoryFlags.WriteOnly, (int)_tex.TextureTarget, _tex.ID);
-			else
-				ResultDataBuffer = _computeContext.AllocateBuffer<float>(ComputeMemoryFlags.WriteOnly, 1);
+            ResultDataBuffer = ComputeBuffer<float>.CreateFromGLTex2D<float>(_computeContext, ComputeMemoryFlags.WriteOnly, (int)_tex.TextureTarget, _tex.ID);
+
 		}
 
 		private int count = 0, byteCount = 0;
@@ -150,83 +145,63 @@ namespace Tayracer.Raycasts
 		private Stopwatch _sw = new Stopwatch();
 		public void ExecuteGpu(int width, int height, Vector3 origin, Matrix4 matrix)
         {
-			List<ComputeMemory> c = _useInterop ? new List<ComputeMemory>() { ResultDataBuffer } : null;
+            List<ComputeMemory> c = new List<ComputeMemory>() { ResultDataBuffer };
 		    try
 		    {
 
-				if(ResultDataBuffer == null || p_width != width || p_height != height)
-				{
-					p_width = width;
-					p_height = height;
-					count = p_width * p_height;
-					byteCount = count * 4;
-				
-					_computeKernel.SetValueArgument(0, p_width);
-					_computeKernel.SetValueArgument(1, p_height);
-				
-					if(_useInterop)
-					{
-						_tex.TexImage(p_width, p_height, IntPtr.Zero, PixelInternalFormat.Rgba32f, OpenTK.Graphics.OpenGL.PixelFormat.Rgba, PixelType.Float, 0);
-						_tex.Bind(0);
-					}
-					else
-					{
-            	       	//ResultDataBuffer = ComputeBuffer<float>.CreateFromGLTex2D<float>(_computeContext, ComputeMemoryFlags.WriteOnly, (int)_tex.TextureTarget, _tex.ID);
-					   	ResultDataBuffer.Dispose();
-					   	ResultDataBuffer = new ComputeBuffer<float>(_computeContext, ComputeMemoryFlags.WriteOnly, byteCount);
-					}
+			if(ResultDataBuffer == null || p_width != width || p_height != height)
+			{
+				p_width = width;
+				p_height = height;
+				count = p_width * p_height;
+				byteCount = count * 4;
 
-					_computeKernel.SetMemoryArgument(4, ResultDataBuffer);
-				}
-				
-				if(MatrixBuffer == null || p_matrix != matrix)
-				{
-					p_matrix = matrix;
-					_computeKernel.SetValueArgument(3, p_matrix);
-				}
-				if(p_origin != origin)
-				{
-					p_origin = origin;
-				}
-				_computeKernel.SetValueArgument(2, new Vector4(p_origin, 0));
+				_computeKernel.SetValueArgument(0, p_width);
+				_computeKernel.SetValueArgument(1, p_height);
 
-				if(_useInterop) 
-				{
-					GL.Finish();
-            		_commands.AcquireGLObjects(c, null);
-				}
+                //ResultDataBuffer.Dispose();
+                _tex.TexImage(p_width, p_height, IntPtr.Zero, PixelInternalFormat.Rgba32f, OpenTK.Graphics.OpenGL.PixelFormat.Rgba, PixelType.Float, 0);
+			    _tex.Bind(0);
+                //ResultDataBuffer = ComputeBuffer<float>.CreateFromGLTex2D<float>(_computeContext, ComputeMemoryFlags.WriteOnly, (int)_tex.TextureTarget, _tex.ID);
+				//ResultDataBuffer.Dispose();
+				//ResultDataBuffer = new ComputeBuffer<float>(_computeContext, ComputeMemoryFlags.WriteOnly, byteCount);
 
-				_commands.Finish();
-				_sw.Reset();
-				_sw.Start();
-	            _commands.Execute(_computeKernel, null, new long[] { width, height }, null, _computeEventList);
-				_sw.Stop();
-	            _avrgExc.AddValue(_sw.ElapsedMilliseconds);
-
-				if(_useInterop)
-				{
-		            _commands.ReleaseGLObjects(c, null);
-		            _commands.Finish();
-				}
-				else
-				{
-					if(_col== null || _col.Length != byteCount) _col = new float[byteCount];
-
-					IntPtr ptr = Marshal.AllocHGlobal(byteCount);
-					_commands.Read(ResultDataBuffer, false, 0, byteCount, ptr, _computeEventList);
-
-					if(!_useInterop)
-					{
-						_tex.Bind();
-						_tex.TexImage(_texWidth, _texHeight, ptr, PixelInternalFormat.Rgba, OpenTK.Graphics.OpenGL.PixelFormat.Rgba, PixelType.Float);
-					}
-					Marshal.FreeHGlobal(ptr);
-				}
-				_texWidth = width;
-				_texHeight = height;
-
-		
+				_computeKernel.SetMemoryArgument(4, ResultDataBuffer);
 			}
+
+			if(MatrixBuffer == null || p_matrix != matrix)
+			{
+				p_matrix = matrix;
+				_computeKernel.SetValueArgument(3, p_matrix);
+			}
+			if(p_origin != origin)
+			{
+				p_origin = origin;
+			}
+			_computeKernel.SetValueArgument(2, new Vector4(p_origin, 0));
+
+            GL.Finish();
+            _commands.AcquireGLObjects(c, null);
+
+			_commands.Finish();
+			_sw.Reset();
+			_sw.Start();
+            _commands.Execute(_computeKernel, null, new long[] { width, height }, null, _computeEventList);
+			_sw.Stop();
+            _avrgExc.AddValue(_sw.ElapsedMilliseconds);
+
+            _commands.ReleaseGLObjects(c, null);
+            _commands.Finish();
+
+
+			_texWidth = width;
+			_texHeight = height;
+
+			//if(_col== null || _col.Length != byteCount) _col = new float[byteCount];
+
+			//_commands.ReadFromBuffer(ResultDataBuffer, ref _col, false, _computeEventList);
+                //_commands.Finish();
+            }
             catch (Exception)
             {
                 _commands.ReleaseGLObjects(c, null);
@@ -441,7 +416,10 @@ namespace Tayracer.Raycasts
 		protected override void OnRenderFrame(FrameEventArgs e)
 		{
 			base.OnRenderFrame(e);
-		
+
+			//_tex.Bind();
+			//_tex.TexImage(_texWidth, _texHeight, _col, PixelInternalFormat.Rgba, OpenTK.Graphics.OpenGL.PixelFormat.Rgba, PixelType.Float);
+
 
 			GL.ClearColor(0f, 0f, 0f, 0f);
 			GL.Clear(ClearBufferMask.ColorBufferBit);

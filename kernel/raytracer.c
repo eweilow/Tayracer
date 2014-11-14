@@ -153,7 +153,6 @@ float3 idea(struct Ray source, float4* spheres, int* sphereCount)
 	return col;
 }
 
-#ifdef INTEROP
 kernel void MatrixMultiply(
 	const int w,
 	const int h,
@@ -161,15 +160,6 @@ kernel void MatrixMultiply(
 	const struct Matrix4x4 matrix,
 	write_only image2d_t output
 )
-#else
-kernel void MatrixMultiply(
-	const int w,
-	const int h,
-	const float4 origin,
-	const struct Matrix4x4 matrix,
-	global write_only float* output
-)
-#endif
 {
 	size_t width = w;
 	size_t x = get_global_id(0);
@@ -192,15 +182,14 @@ kernel void MatrixMultiply(
 
 	float3 sta = idea(ray, spheres, &c);
 
-	int index = (x + w * y) * 4;
-
-#ifdef INTEROP
+	int index = (x + w * y);
 
 	float4 f = (float4)(sta,1);
+
+	
 	write_imagef(output, (int2)(x,y), f);
-#else
-	output[index] = sta.x;
-	output[index+1] = sta.y;
-	output[index+2] = sta.z;
-#endif
+	//output[index] = f.x;
+	//output[index] = sta.x;
+	//output[index+1] = sta.y;
+	//output[index+2] = sta.z;
 }
