@@ -31,7 +31,7 @@ namespace Tayracer
 
         }*/
 
-		public static void Main(string[] args)
+		public static void MainOld(string[] args)
 		{
 			using(var rt = new RayTracer(512, 512))
 			{

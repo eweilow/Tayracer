@@ -36,13 +36,15 @@
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="RayTracer.cs" />
-    <Compile Include="RayWorld.cs" />
-    <Compile Include="ITraceable.cs" />
-    <Compile Include="Ray.cs" />
-    <Compile Include="ScreenRender.cs" />
+    <Compile Include="CLTracer.cs" />
+    <Compile Include="old\ITraceable.cs" />
+    <Compile Include="old\Program.cs" />
+    <Compile Include="old\Ray.cs" />
+    <Compile Include="old\RayTracer.cs" />
+    <Compile Include="old\RayWorld.cs" />
+    <Compile Include="old\ScreenRender.cs" />
+    <Compile Include="ComputeWrapper.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
@@ -61,16 +63,19 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <None Include="raytrace.c">
+    <None Include="old\raytrace.c">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="kernel.c">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
     <Content Include="kernel\raytracer.c">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="old\kernel.c">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="old\" />
   </ItemGroup>
 </Project>
