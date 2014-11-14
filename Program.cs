@@ -19,18 +19,6 @@ namespace Tayracer
 	{
 	    private const int N = 256;
 
-		/*[Cudafy]
-        public static void Calc(GThread thread, float[] a, float[] b, float[] c)
-        {
-		    int id = thread.get_global_id(0);
-
-		    c[id] = c[id] + id;
-            /*
-            for (int i = 0; i < size; i++ )
-                c[id + i] = size;* /
-
-        }*/
-
 		public static void Main(string[] args)
 		{
 			using(var rt = new RayTracer(512, 512))
@@ -38,65 +26,6 @@ namespace Tayracer
 				rt.VSync = VSyncMode.On;
 				rt.Run(30.0);
 			}
-			return;/*
-		RayTracer.ExecuteGpu(new Vector3[]{new Vector3(0f, 0f, 0f), new Vector3(0f, 0f, 0f)}, new Vector3[]{
-			new Vector3(15f, 0f, 0f), new Vector3(15f, 15f, 0f)
-		});
-
-		    Console.Read();
-		    return;*/
-			//var gpu = CudafyHost.GetDevice(eGPUType.OpenCL);
-    /*
-			CudafyTranslator.Language = eLanguage.OpenCL;
-            CudafyModule km = CudafyTranslator.Cudafy(typeof(Program), typeof(RayTracer)); // or = Cudafy(eArchitecture.OpenCL, typeof(add_loop_long));
-
-			// Get the first CUDA device and load the module generated above.
-			GPGPU gpu = CudafyHost.GetDevice(eGPUType.OpenCL, 0); // or eGPUType.OpenCL
-			gpu.LoadModule(km);
-
-		    float[] a = new float[N];
-		    float[] b = new float[N];
-		    float[] c = new float[N];
-
-		    float[] gpu_a = gpu.Allocate<float>(a);
-		    float[] gpu_b = gpu.Allocate<float>(b);
-		    float[] gpu_c = gpu.Allocate<float>(c);
-
-            // Fill the arrays 'a' and 'b' on the CPU
-            for (int i = 0; i < N; i++)
-            {
-                a[i] = (float)i;
-                b[i] = 2f * i;
-            }
-
-            float[] e = new float[N];
-            float[] f = new float[N];
-            // Copy the arrays 'a' and 'b' to the GPU
-            gpu.CopyToDevice(a, gpu_a);
-            gpu.CopyToDevice(b, gpu_b);
-		    var sw = Stopwatch.StartNew();
-            gpu.Launch(N/4, 4).Calc(gpu_a, gpu_b, gpu_c);
-
-		    var ray = new RayCast();
-		    gpu.Launch().CastRays(ref ray, 0, 10);
-            sw.Stop();
-
-            gpu.CopyFromDevice(gpu_a, e);
-            gpu.CopyFromDevice(gpu_b, f);
-            gpu.CopyFromDevice(gpu_c, c);
-
-            gpu.Free(gpu_a);
-            gpu.Free(gpu_b);
-            gpu.Free(gpu_c);
-
-            for (int i = 0; i < N; i++)
-            {
-                Console.WriteLine("{0} {1} {2}", e[i], f[i], c[i]);
-            }
-
-			Console.WriteLine("Sum of {0} took {1} ms", N, sw.ElapsedMilliseconds);
-		    Console.ReadLine();
-			return; */
 		}
 	}
 
@@ -307,72 +236,6 @@ namespace Tayracer
 		protected override void OnMouseMove(OpenTK.Input.MouseMoveEventArgs e)
 		{
 			base.OnMouseMove(e);
-
-			/*ClearPixels();
-			var v = new Vector3(Width / 2f, Height / 2f, 0f);
-			//Ray ray = new Ray(v, Vector3.Normalize(new Vector3(Mouse.X, Height - Mouse.Y, 0f)-v) * 1f);
-			RayCast ray = new RayCast(){Origin = v, Step = Vector3.Normalize(new Vector3(Mouse.X, Height - Mouse.Y, 0f)-v) };
-
-			CastRays(ray, 0, 10);
-			/*
-			for(int i = 0; i < 10; i++)
-			{
-				CastResult result;
-				if(!_world.CastRay(ray, 1000, out result))
-				{
-					break;
-				}
-				Console.WriteLine(result.State);
-				if(result.Material.IsReflective && result.State == 1)
-				{
-					ray = new RayCast(){ Origin = result.EndPoint, Step = ((result.Inbound).Reflect(result.Normal)) };
-				}
-				else if(!result.Material.IsOpaque)
-				{
-					ray = new RayCast(){ Origin = result.EndPoint, Step = result.Inbound.Refract(result.State == 1 ? 1.0 : 1.5, result.State == 1 ? 1.5 : 1.0, -result.Normal).Normalized() };
-				}
-				else
-				{
-					break;
-				}
-			}*/
-
-			//_sw.Stop();
-			//_castRays++;
-
-			//Title = ((double)_sw.ElapsedMilliseconds / (double)_castRays).ToString();
-
-			/*
-			//Console.WriteLine("{0} {1}", ray.A, ray.B);
-			for(int i = 0; i < 1000; i++)
-			{
-				int j = 0; 
-				bool collided = false;
-				while(!collided && j < _spheres.Length)
-					ray = _spheres[j++].TryFor(ray, out collided);
-
-				byte r = collided ? (byte)255 : (byte)0;
-				byte gb = collided ? (byte)0 : (byte)255;
-				DrawLine(ray.A.X, ray.A.Y, ray.B.X, ray.B.Y, r, gb, gb);
-
-				float ior = ray.IOR;
-				ray = new Ray(ray.B, ray.Direction * ray.Magnitude) { IOR = ior };
-				Console.WriteLine(" pls: {0} {1}", ior, ray.IOR);
-			}* /
-
-			foreach(var sphere in _world.Spheres)
-			{
-				DrawCircle((short)sphere.Origin.X, (short)sphere.Origin.Y, (short)sphere.Radius, 0.2f);
-			}
-
-
-			foreach(var light in _world.Lights)
-			{
-				DrawCircle((short)light.Origin.X, (short)light.Origin.Y, 5, 0.2f);
-			}*/
-
-			//DrawLine((short)(Width / 2), (short)(Height / 2), (short)Mouse.X, (short)Height - (short)Mouse.Y, (byte)255, (byte)255, (byte)255);
-			//Console.WriteLine("{0} {1}", (short)Mouse.X, (short)Mouse.Y);
 		}
 
 		private float _angle = 0f;
@@ -383,9 +246,6 @@ namespace Tayracer
 			Vector4 targetVec = Vector4.Transform(new Vector4(screenX, screenY, 1f, 1f), mvp);
 			Vector3 worldVec = screenVec.Xyz / screenVec.W;
 			Vector3 normalVec = (targetVec.Xyz / targetVec.W).Normalized();
-
-			//Console.WriteLine("{0} - {1} = {2}", worldVec, normalVec, worldVec + normalVec);
-			//DrawLine(worldVec.X, worldVec.Z, worldVec.X + normalVec.X*100f, worldVec.Z + normalVec.Z*100f);
 
 		    var rayCast = new RayCast() {Origin = worldVec, Step = normalVec};
             CastRays(ref rayCast, 0, 15, true, white);
@@ -399,10 +259,6 @@ namespace Tayracer
             _tex.TexImage(1, 1);
             _tex.SetTextureMagFilter(TextureMagFilter.Nearest);
             _tex.SetTextureMinFilter(TextureMinFilter.Nearest);
-
-            /*_world.OnRayTraced += (start, end, color) => {
-                DrawLine(start.X, start.Y, end.X, end.Y, (byte)(color.X*byte.MaxValue), (byte)(color.Y*byte.MaxValue), (byte)(color.Z*byte.MaxValue));
-            };*/
         }
 
         private Vector3[,][] _screenField = new Vector3[0,0][];
@@ -434,8 +290,6 @@ namespace Tayracer
                     _screenField[x, y] = new[] { screenVec.Xyz / screenVec.W, targetVec.Xyz / targetVec.W };
                 }
             }
-
-            //ClearPixels(255, 0, 0);
         }
 
 	    private int x = 0;
@@ -473,22 +327,6 @@ namespace Tayracer
 
             x += Width / 8;
             if (x >= Width) x = 0;
-            /*
-            var mvp = Matrix4.Mult(_inverseProjection, _invModelview);
-            DrawProjectedLine(-1f, 0f, mvp, true);
-            DrawProjectedLine(1f, 0f, mvp, true);
-
-	        foreach (var sphere in _world.Spheres)
-	        {
-	            DrawCircle((short) sphere.Origin.X, (short) sphere.Origin.Z, (short) sphere.Radius, 0.2f);
-	        }
-
-
-	        foreach (var light in _world.Lights)
-	        {
-	            DrawCircle((short) light.Origin.X, (short) light.Origin.Z, 5, 0.2f);
-	        }*/
-
 
 	        _tex.Bind();
 	        _tex.TexImage(Width, Height, PixelBuffer, PixelInternalFormat.Rgb, PixelFormat.Rgb, PixelType.UnsignedByte);
@@ -499,10 +337,8 @@ namespace Tayracer
 		{
 			base.OnRenderFrame(e);
 
-
 			GL.ClearColor(0f, 0f, 0f, 0f);
 			GL.Clear(ClearBufferMask.ColorBufferBit);
-
 
 			GL.MatrixMode(MatrixMode.Projection);
 			GL.PushMatrix();
@@ -529,8 +365,6 @@ namespace Tayracer
 			GL.PopMatrix();
 
 			GL.MatrixMode(MatrixMode.Modelview);
-
-			//Title = GL.GetError().ToString();
 
 			SwapBuffers();
 		}
