@@ -45,6 +45,7 @@
     <Compile Include="old\RayWorld.cs" />
     <Compile Include="old\ScreenRender.cs" />
     <Compile Include="ComputeWrapper.cs" />
+    <Compile Include="old\Camera.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>

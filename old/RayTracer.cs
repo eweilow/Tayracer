@@ -68,7 +68,7 @@ namespace Tayracer.Raycasts
                 var ctx = (IGraphicsContextInternal)GraphicsContext.CurrentContext;
                 var raw_context_handle = ctx.Context.Handle;
                 var p1 = new ComputeContextProperty(ComputeContextPropertyName.CL_GL_CONTEXT_KHR, raw_context_handle);
-                var p2 = new ComputeContextProperty(ComputeContextPropertyName.CL_WGL_HDC_KHR, curDC);
+				var p2 = new ComputeContextProperty(ComputeContextPropertyName.CL_WGL_HDC_KHR, curDC);
                 var p3 = new ComputeContextProperty(ComputeContextPropertyName.Platform, platform.Handle.Value); 
                 var props = new List<ComputeContextProperty>() { p1, p2, p3 };
 

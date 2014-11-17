@@ -1,60 +1,96 @@
 ﻿using System;
+using System.Linq;
 using OpenTK.Graphics.OpenGL;
 using Cloo;
+using System.Runtime.InteropServices;
+using OpenTK.Graphics;
+using System.Collections.Generic;
+using System.IO;
 
 namespace Tayracer
 {
-	public abstract class IComputeMemoryPrefab<T> where T : struct
+	public class ComputeWrapper : IDisposable
 	{
-		public abstract ComputeMemory Create(ComputeContext context);
-	}
+		[DllImport("opengl32.dll")]
+		extern static IntPtr wglGetCurrentDC();
+		public static readonly bool CanInterop;
 
-	public abstract class ComputeGLPrefab<T> : IComputeMemoryPrefab<T> where T : struct
-	{
-		public int GLId;
-		public ComputeMemoryPrefab<T> Fallback;
-	}
-
-	public class ComputeMemoryPrefab<T> : IComputeMemoryPrefab<T> where T : struct
-	{
-		public int ByteLength;
-	}
-
-
-	public class ComputeGLTexturePrefab<T> : ComputeGLPrefab<T> where T : struct
-	{
-		public TextureTarget TextureTarget2D;
-
-		public ComputeMemory Create(ComputeContext context)
+		static ComputeWrapper()
 		{
-			ComputeBuffer<T>.CreateFromGLTex2D(context, ComputeMemoryFlags.ReadWrite, (int)TextureTarget2D, GLId);
-		}
-	}
-
-	public class ComputeGLBufferPrefab<T> : ComputeGLPrefab<T> where T : struct
-	{
-		public ComputeMemory Create(ComputeContext context)
-		{
-			ComputeBuffer<T>.CreateFromGLBuffer(context, ComputeMemoryFlags.ReadWrite, GLId);
-		}
-	}
-
-	public class ComputeWrapper
-	{
-		private ComputeContext Context;
-		private ComputeProgram Program;
-		private ComputeKernel Kernel;
-		private ComputeEventList EventList;
-		private ComputeCommandQueue Commands;
-
-		public bool LoadKernel(string path, params string[] arguments)
-		{
-
+			try 
+			{
+				wglGetCurrentDC();
+				CanInterop = true;
+			}
+			catch(Exception)
+			{
+				CanInterop = false;
+			}
 		}
 
-		public void Initialize()
-		{
+		public ComputeContext Context;
+		public ComputeProgram Program;
+		public ComputeKernel Kernel;
+		public ComputeEventList EventList;
+		public ComputeCommandQueue Commands;
 
+		public void Dispose()
+		{
+			if(Context != null) Context.Dispose();
+			if(Program != null) Program.Dispose();
+			if(Kernel != null) Kernel.Dispose();
+			if(Commands != null) Commands.Dispose();
+		}
+
+		private List<ComputeDevice> _devices;
+
+		public void CreateContext(ComputePlatform platform, ComputeDevice device, bool interop = true)
+		{
+			CreateContext(platform, new List<ComputeDevice>(){ device }, interop);
+		}
+
+		public void CreateContext(ComputePlatform platform, List<ComputeDevice> devices = null, bool interop = true)
+		{
+			_devices = devices ?? new List<ComputeDevice>(){ platform.Devices[0] };
+			if(interop && CanInterop)
+			{
+				var curDC = wglGetCurrentDC();
+				var ctx = (IGraphicsContextInternal)GraphicsContext.CurrentContext;
+				var rawContextHandle = ctx.Context.Handle;
+				var p1 = new ComputeContextProperty(ComputeContextPropertyName.CL_GL_CONTEXT_KHR, rawContextHandle);
+				var p2 = new ComputeContextProperty(ComputeContextPropertyName.CL_WGL_HDC_KHR, curDC);
+				var p3 = new ComputeContextProperty(ComputeContextPropertyName.Platform, platform.Handle.Value); 
+				var props = new List<ComputeContextProperty>() { p1, p2, p3 };
+
+				var properties = new ComputeContextPropertyList(props);
+				Context = new ComputeContext(_devices, properties, null, IntPtr.Zero);
+			}
+			else
+			{
+				var properties = new ComputeContextPropertyList(platform);
+				Context = new ComputeContext(_devices, properties, null, IntPtr.Zero);
+			}
+		}
+
+		public bool LoadAndBuildKernel(string file, string kernel = "main", params string[] args)
+		{
+			var source = File.ReadAllText(file);
+            Program = new ComputeProgram(Context, new[] { args.Aggregate((s, s1) => s + "\n" + s1), source });
+			try
+			{
+				Program.Build(_devices, null, null, IntPtr.Zero);
+			}
+			catch(BuildProgramFailureComputeException bex)
+			{
+				Console.WriteLine("Build error:");
+				Console.WriteLine(Program.GetBuildLog(_devices[0]));
+				return false;
+			}
+
+			Kernel = Program.CreateKernel("MatrixMultiply");
+			EventList = new ComputeEventList();
+			Commands = new ComputeCommandQueue(Context, _devices[0], ComputeCommandQueueFlags.None);
+			return true;
 		}
 	}
 }
